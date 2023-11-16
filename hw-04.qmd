@@ -3,7 +3,7 @@ title: "HW-04: Regression in R"
 author: "Visalakshi Iyer"
 format: html
 editor: visual
-toc:true
+toc: true
 ---
 
 ::: callout-note
@@ -33,18 +33,16 @@ pacman::p_load(tidymodels,
 # Global ggplot theme
 theme_set(theme_bw() + theme(legend.position = "top"))
 
-```
-
-## **Synthetic Data Generation**
-
-```{r}
-
-
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 ```
 
 Do hunting behaviors, as measured by the number of prey caught per month (prey_p_month), vary with different factors like the animal's age, sex, reproductive condition, diet, and the amount of time they spend indoors?
 
 ## Load and Explore Data
+
+Cats data consists of only 101 instances of pet cats, with a variety of attributes of a cat's living conditions.
+
+We will only load and select the ones that seem most relevant.
 
 ```{r}
 
@@ -53,7 +51,9 @@ catdata <- read_csv(here("data/cats_uk_reference.csv")) |>
          hrs_indoors, n_cats, food_dry, food_wet, food_other, age_years)
 ```
 
-### Initial Preprocessing
+### Preprocessing
+
+Removing null values with `complete.cases()` and converting logical and categorical variables to numerical variables. Although this cuts the data really short. Now we only have 78 instances to work with.
 
 ```{r}
 
@@ -72,6 +72,8 @@ catdata[complete.cases(catdata),] |>
 ```
 
 ### Linear Relations with Linear Regression
+
+Simple LM fit here, we take the `age` attribute and compare with our target variable `prey_p_month`. We can see that the model learns a decreasing prey count with increase in age.
 
 ```{r}
 
@@ -92,12 +94,14 @@ ggplot() +
 
 ### Step 1: Split Input Data into Training and Test Sets
 
+Here, we take around 80% of the data into the training set. In an ideal scenario, 60% would have sufficed. In order to force a fit, we go with 80%.
+
 ```{r}
 
 numInstances = nrow(catdata_new)
 # Train/test split
-numTrain <- 0.8*numInstances   # number of training instances
-numTest <- 0.2*numInstances
+numTrain <- 63    # number of training instances = 80%
+numTest <- numInstances - numTrain
 
 set.seed(123) # For reproducibility
 # 
@@ -120,6 +124,8 @@ y_test <- test_data$y
 
 ### Step 2: Fit Regression Model to Training Set
 
+Our model relation will give `prey_p_month ~ age_years` in this part
+
 ```{r}
 
 # Create a linear regression model specification
@@ -133,6 +139,8 @@ lin_reg_fit <- lin_reg_spec |>
 
 ### Step 3: Apply Model to the Test Set
 
+Predict with 20% test data
+
 ```{r}
 
 # Apply model to the test set
@@ -144,6 +152,8 @@ y_pred_test
 
 ### Step 4: Evaluate Model Performance on Test Set
 
+We can see the poor fit of the model. None of the true values coincide with the predicted values. In fact, the predictions are significantly over the range of the true value range `(0,3)`.
+
 ```{r}
 
 # Plotting true vs predicted values
@@ -152,7 +162,10 @@ ggplot() +
   ggtitle('Comparing true and predicted values for test set') +
   xlab('True values for y') + 
   ylab('Predicted values for y')
+
 ```
+
+If we look into the error, we can clearly understand that this is an overfitted model.
 
 ```{r}
 
@@ -168,6 +181,8 @@ r2_value <- rsq(eval_data, truth = truth, estimate = estimate)
 
 cat("Root mean squared error =", sprintf("%.4f", rmse_value$.estimate), "\n")
 ```
+
+The highest R-square value achieved in this scenario was around `0.20`. But the sample size in that case was not appropriate.
 
 ```{r}
 
@@ -197,16 +212,22 @@ ggplot() +
   geom_point(aes(x = as.vector(X_test), y = as.vector(y_test)), color = 'black') +
   geom_line(aes(x = as.vector(X_test), y = y_pred_test), color = 'blue', linewidth = 1) +
   ggtitle(sprintf('Predicted Function: y = %.2fX + %.2f', slope, intercept)) +
-  xlab('X') +
-  ylab('y')
+  xlab('Age (Test)') +
+  ylab('Prey count (Test)')
 ```
+
+Our model equation is `prey = -0.31(age) + 6.46`. We have a high intercept value due to extremely less data around the distribution tails. This causes the fit to extend to upper limits.
 
 ## **Effect of Correlated Attributes**
 
-```{r}
+Now we take 4 oter variables.
 
-catdata_new
-```
+X2: Animal Reproductive Condition\
+X3: Number of Cats\
+X4: Hours spent indoor\
+X5: Food (Other Types)
+
+Since these variables are inherently independent, we perform matrix operation to make them co-linear.
 
 ```{r}
 
@@ -247,16 +268,18 @@ plot4 <- ggplot() +
 grid.arrange(plot1, plot2, plot3, plot4, ncol=2)
 ```
 
+After this step, the datasets will be combined into train and test data.
+
 ```{r}
 
 # Split data into training and testing sets
 train_indices <- 1:(numInstances - numTest)
-test_indices <- (numInstances - numTest):numInstances + 1
+test_indices <- (numInstances - numTest + 1):numInstances 
 
 # Create combined training and testing sets
 X_train2 <- cbind(X[train_indices], X2[train_indices])
 X_test2 <- cbind(X[test_indices], X2[test_indices])
-
+ 
 X_train3 <- cbind(X[train_indices], X2[train_indices], X3[train_indices])
 X_test3 <- cbind(X[test_indices], X2[test_indices], X3[test_indices])
 
@@ -362,14 +385,14 @@ ggplot(results, aes(x = Sum_of_Absolute_Weights)) +
   theme_minimal()
 ```
 
+In this case of overfitting, The train and test error show saturation after a steady decline.
+
 ```{r}
+
 results
 ```
 
-```{r}
-
-tibble(X_train5, y=y_train)
-```
+We can see that introducing the correlated features reduces the precision of the estimated coefficients, which weakens the statistical power of your regression model. But it doesn't change the end-result of the target predictions upto a significant level.
 
 ## **Ridge Regression**
 
@@ -380,11 +403,11 @@ train_data <- tibble(y = y_train, X_train5)
 test_data <- tibble(y = y_test, X_test5)
 
 # Set up a Ridge regression model specification
-ridge_spec <- linear_reg(penalty = 0.4, mixture = 1) %>% 
+ridge_spec <- linear_reg(penalty = 0.4, mixture = 1) %>%
   set_engine("glmnet")
 
 # Fit the model
-ridge_fit <- ridge_spec %>% 
+ridge_fit <- ridge_spec %>%
   fit(y ~ ., data = train_data)
 
 # Make predictions
@@ -405,8 +428,8 @@ calculate_rmse <- function(actual, predicted) {
 # Extract coefficients
 ridge_coef <- coefficients(ridge_fit$fit)
 
-model6 <- sprintf("%.2f X + %.2f X2 + %.2f X3 + %.2f X4 + %.2f X5 + %.2f", 
-                 ridge_coef[2], ridge_coef[3], ridge_coef[4], 
+model6 <- sprintf("%.2f X + %.2f X2 + %.2f X3 + %.2f X4 + %.2f X5 + %.2f",
+                 ridge_coef[2], ridge_coef[3], ridge_coef[4],
                  ridge_coef[5], ridge_coef[6], ridge_coef[1])
 
 values6 <- tibble(
@@ -421,6 +444,8 @@ final_results <- bind_rows(results, values6)
 
 final_results
 ```
+
+In ridge regression, a lower sum of absolute weights is usually desirable as it indicates a model with less complexity. A high sum of absolute weights, as in this case, might suggest that the model is too complex and thus overfitting the data. It has completely neglected each variable and assigned `0.0` as the coefficients.
 
 ## **Lasso Regression**
 
@@ -464,6 +489,8 @@ lasso_results <- tibble(Model = "Lasso",
 
 lasso_results
 ```
+
+Lasso regression is a type of linear regression that uses shrinkage. Shrinkage is where data values are shrunk towards a central point, like the mean. This is particularly useful in the context of high-dimensional data where it can help in feature selection. The sum of absolute weights is relatively low, but it is yet not the best fit. The equation is given as `"0.00 X + 0.00 X2 + 0.00 X3 + 0.00 X4 + NA X5 + 4.79"`.
 
 ## **Hyperparameter Selection via Cross-Validation**
 
@@ -540,7 +567,10 @@ cat("Selected alpha =", best_params$penalty, "\n")
 
 all_results <- bind_rows(results, ridge_results)
 all_results
+
 ```
+
+In an overfitting scenario, hyperparameter tuning will only add to thhe error rate as in this case. Ideally, we would need to increase the data, or perform feature transformation on the existing data. We can also go withh a less complex model.
 
 ```{r}
 set.seed(1234)
@@ -619,3 +649,5 @@ cat("Selected alpha for Lasso =", best_params_lasso$penalty, "\n")
 
 lasso_results
 ```
+
+We can understand that although there is a relation between hunting patterns of the cats and their living conditions, having a sparse dataset will not result in optimal findings. This dataset is good enough to indicate average patterns (like average prey caught per month by different age groups). It is not sufficient to build a reression model to predict the unting beavior of a cat.
