@@ -9,7 +9,9 @@ toc: true
 ::: callout-note
 ## Introduction
 
-\-\--
+The dataset is taken from [TidyTuesday \| Pet Cats UK](https://github.com/rfordatascience/tidytuesday/tree/master/data/2023/2023-01-31). We are addressing the following analysis question:
+
+**Do hunting behaviors, as measured by the number of prey caught per month (prey_p_month), vary with different factors like the animal's age, sex, reproductive condition, diet, and the amount of time they spend indoors?**
 :::
 
 ## Package Installation
@@ -35,8 +37,6 @@ theme_set(theme_bw() + theme(legend.position = "top"))
 
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 ```
-
-Do hunting behaviors, as measured by the number of prey caught per month (prey_p_month), vary with different factors like the animal's age, sex, reproductive condition, diet, and the amount of time they spend indoors?
 
 ## Load and Explore Data
 
